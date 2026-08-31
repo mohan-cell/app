@@ -253,7 +253,7 @@ function toggleFullscreen() {
 
 interactionOverlay.addEventListener('dblclick', (e) => { e.preventDefault(); toggleFullscreen(); });
 
-var countDownDate = new Date("Aug 31, 2026 23:00:25").getTime();
+var countDownDate = new Date("Sep 30, 2026 23:00:25").getTime();
 var x = setInterval(function() {
   var now = new Date().getTime();
   var distance = countDownDate - now;
