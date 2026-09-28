@@ -66,8 +66,10 @@
     <div class="card" id="authSection" style="width: 90%; max-width: 400px; text-align:center;">
         <h2 style="color:var(--primary); margin-bottom:1rem;">Device Activation</h2>
         <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1.5rem;">Enter your 10-digit coupon code to activate or renew this device.</p>
-        <div class="form-group"><input type="text" id="activationCode" placeholder="Enter Code" style="text-align: center; letter-spacing: 2px;" autocomplete="off"></div>
-        <button id="activateBtn" class="btn btn-primary" style="width:100%" onclick="activate()">Unlock Device</button>
+        <div class="form-group">
+            <input type="text" id="activationCode" placeholder="Enter Code" style="text-align: center; letter-spacing: 2px;" autocomplete="off" tabindex="1">
+        </div>
+        <button id="activateBtn" class="btn btn-primary" style="width:100%" onclick="activate()" tabindex="2">Unlock Device</button>
     </div>
 
     <div id="splashScreen">
@@ -100,8 +102,22 @@
     <script>
         const client = supabase.createClient('https://yhxhmxawgaovzyxwookw.supabase.co', 'sb_publishable_jhU4EFNFX3ZtrmrgRfYlUQ_OfjA6Rym');
         
+        // Backward-compatible UUID generator (compatible with older Android TV WebViews)
+        function generateUUID() {
+            if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+                return crypto.randomUUID();
+            }
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
         let device = JSON.parse(localStorage.getItem('mytv_device'));
-        if (!device) { device = { id: crypto.randomUUID(), role: null }; localStorage.setItem('mytv_device', JSON.stringify(device)); }
+        if (!device || !device.id) { 
+            device = { id: generateUUID(), role: null }; 
+            localStorage.setItem('mytv_device', JSON.stringify(device)); 
+        }
 
         // CUSTOM TOAST NOTIFICATION FUNCTION
         function showToast(msg, isError = false) {
@@ -132,7 +148,8 @@
             if (error || !data.success) return showToast(error?.message || data.error, true);
             
             if (data.device_id) device.id = data.device_id;
-            device.role = 'user'; localStorage.setItem('mytv_device', JSON.stringify(device));
+            device.role = 'user'; 
+            localStorage.setItem('mytv_device', JSON.stringify(device));
             
             showToast(`Success! Unlocked ${data.tier} tier until ${new Date(data.expiry).toLocaleDateString()}`);
             document.getElementById('activationCode').value = ''; 
