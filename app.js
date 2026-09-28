@@ -12,7 +12,7 @@ let currentChannelIndex = -1;
 let hlsInstance = null;
 let uiTimeout = null;
 
-
+// Global trigger accessed by user.html
 window.startTvApp = async function(playlistUrl) {
     if (!playlistUrl) return;
     try {
@@ -35,7 +35,6 @@ function parseM3U(data) {
     for (let line of lines) {
         line = line.trim();
         if (line.startsWith('#EXTINF:')) {
-
             const logoMatch = line.match(/tvg-logo=["']?([^"']*)["']?/i);
             const groupMatch = line.match(/group-title=["']?([^"']*)["']?/i); 
             
@@ -46,7 +45,6 @@ function parseM3U(data) {
             currentChannel.name = commaIndex !== -1 ? line.substring(commaIndex + 1).trim() : 'Unknown Channel';
         } else if (line !== '' && !line.startsWith('#')) {
             currentChannel.url = line;
-
             channels.push({...currentChannel}); 
             currentChannel = {}; 
         }
@@ -70,7 +68,6 @@ function renderSidebar() {
             resetUITimer();
         };
 
-
         const num = document.createElement('div');
         num.className = 'channel-num';
         num.textContent = (index + 1) + '.';
@@ -84,14 +81,14 @@ function renderSidebar() {
         name.className = 'channel-name';
         name.textContent = channel.name;
 
-        div.appendChild(num); // Append Number
+        div.appendChild(num);
         div.appendChild(img);
         div.appendChild(name);
         channelList.appendChild(div);
     });
 }
 
-
+// STRICT SEARCH FUNCTIONALITY
 searchInput.addEventListener('input', (e) => {
     const searchTerm = e.target.value.toLowerCase().trim();
     const items = document.querySelectorAll('.channel-item');
@@ -100,7 +97,6 @@ searchInput.addEventListener('input', (e) => {
         const cName = (channel.name || '').toLowerCase();
         const cGroup = (channel.group || '').toLowerCase();
         
-
         if (searchTerm === '' || cName.includes(searchTerm) || cGroup.includes(searchTerm)) {
             items[index].style.display = 'flex';
         } else {
@@ -109,7 +105,6 @@ searchInput.addEventListener('input', (e) => {
     });
     resetUITimer();
 });
-
 
 searchInput.addEventListener('focus', showUI);
 
@@ -197,48 +192,62 @@ interactionOverlay.addEventListener('touchend', e => {
     else if (diff < -50) prevChannel(); 
 }, {passive: true});
 
+// --------------------------------------------------------
+// SMART TV / KEYBOARD NAVIGATION HUB
+// --------------------------------------------------------
+function isOkOrEnterKey(e) {
+    return (
+        e.key === 'Enter' ||
+        e.key === 'Select' ||
+        e.key === 'Ok' ||
+        e.keyCode === 13 ||   // Standard Enter
+        e.keyCode === 23 ||   // Android DPAD_CENTER
+        e.keyCode === 66 ||   // Android KEYCODE_ENTER
+        e.keyCode === 108     // NUMPAD_ENTER
+    );
+}
 
 document.addEventListener('keydown', e => {
     const authSection = document.getElementById('authSection');
 
-
+    // 1. IF WE ARE ON THE LOGIN / ACTIVATION SCREEN
     if (authSection && authSection.style.display !== 'none') {
         const codeInput = document.getElementById('activationCode');
         const activateBtn = document.getElementById('activateBtn');
 
-
-        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        // TV Remote Up/Down navigation between input and button
+        if (e.key === 'ArrowDown' || e.keyCode === 20) {
             e.preventDefault();
-            if (document.activeElement === codeInput) {
-                activateBtn.focus();
-            } else {
-                codeInput.focus();
-            }
-        } 
-
-        else if (e.key === 'Enter') {
-            if (document.activeElement === codeInput) {
-                e.preventDefault();
-                activateBtn.click();
-            }
+            activateBtn.focus();
+            return;
+        } else if (e.key === 'ArrowUp' || e.keyCode === 19) {
+            e.preventDefault();
+            codeInput.focus();
+            return;
         }
-        
 
-        if (document.activeElement.tagName === 'INPUT') return; 
-        
+        // TV Remote OK / DPAD_CENTER / ENTER button
+        if (isOkOrEnterKey(e)) {
+            e.preventDefault();
+            activate();
+            return;
+        }
 
-        return; 
+        // Allow regular typing and backspacing inside the input box
+        if (document.activeElement === codeInput) return;
+
+        return;
     }
 
-
+    // 2. IF WE ARE IN THE VIDEO PLAYER
     if (document.activeElement.tagName === 'INPUT') {
-        if (e.key === 'Escape') {
+        if (e.key === 'Escape' || e.keyCode === 4) {
             document.activeElement.blur();
             hideUI();
-        } else if (e.key === 'Enter') {
+        } else if (isOkOrEnterKey(e)) {
             document.activeElement.blur();
         }
-        return; 
+        return;
     }
     
     const isSidebarActive = sidebar.classList.contains('active');
@@ -251,6 +260,7 @@ document.addEventListener('keydown', e => {
             hideUI();
             break;
         case 'Enter':
+        case 'Select':
             if (document.activeElement && document.activeElement.classList.contains('channel-item')) {
                 return; 
             }
@@ -281,13 +291,3 @@ function toggleFullscreen() {
 }
 
 interactionOverlay.addEventListener('dblclick', (e) => { e.preventDefault(); toggleFullscreen(); });
-
-var countDownDate = new Date("Sep 30, 2026 23:00:25").getTime();
-var x = setInterval(function() {
-  var now = new Date().getTime();
-  var distance = countDownDate - now;
-  if (distance <= 0) {
-    clearInterval(x);
-    location.replace('https://www.google.com/');
-  }
-}, 1000);
