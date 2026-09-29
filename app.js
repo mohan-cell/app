@@ -12,7 +12,6 @@ let currentChannelIndex = -1;
 let hlsInstance = null;
 let uiTimeout = null;
 
-// Global trigger accessed by user.html
 window.startTvApp = async function(playlistUrl) {
     if (!playlistUrl) return;
     try {
@@ -51,7 +50,7 @@ function parseM3U(data) {
     }
     
     renderSidebar();
-    if (channels.length > 0) playChannel(0);
+    if (channels.length > 0) playChannel(0, false);
     else loader.style.display = 'none';
 }
 
@@ -64,7 +63,7 @@ function renderSidebar() {
         
         div.onclick = (e) => {
             e.stopPropagation(); 
-            playChannel(index);
+            playChannel(index, false);
             resetUITimer();
         };
 
@@ -74,6 +73,7 @@ function renderSidebar() {
         
         const img = document.createElement('img');
         img.className = 'channel-logo';
+        img.loading = 'lazy';
         img.src = channel.logo || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50"><rect width="50" height="50" fill="%23333"/><text x="50%" y="50%" fill="%23fff" text-anchor="middle" dy=".3em">TV</text></svg>';
         img.onerror = function() { this.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50"><rect width="50" height="50" fill="%23333"/><text x="50%" y="50%" fill="%23fff" text-anchor="middle" dy=".3em">TV</text></svg>'; };
 
@@ -88,7 +88,7 @@ function renderSidebar() {
     });
 }
 
-// STRICT SEARCH FUNCTIONALITY
+
 searchInput.addEventListener('input', (e) => {
     const searchTerm = e.target.value.toLowerCase().trim();
     const items = document.querySelectorAll('.channel-item');
@@ -108,7 +108,7 @@ searchInput.addEventListener('input', (e) => {
 
 searchInput.addEventListener('focus', showUI);
 
-function playChannel(index) {
+function playChannel(index, autoScrollSidebar = false) {
     if (index < 0) index = channels.length - 1;
     if (index >= channels.length) index = 0;
     
@@ -153,69 +153,106 @@ function playChannel(index) {
         iframePlayer.onload = () => { loader.style.display = 'none'; };
     }
 
-    updateSidebarHighlight();
-    showUI();
+    updateSidebarHighlight(autoScrollSidebar);
 }
 
-function updateSidebarHighlight() {
+function updateSidebarHighlight(shouldScroll = false) {
     const items = document.querySelectorAll('.channel-item');
     items.forEach((item, i) => {
         if (i === currentChannelIndex) {
             item.classList.add('playing');
-            item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            if (shouldScroll) {
+                item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
         } else {
             item.classList.remove('playing');
         }
     });
 }
 
-function showUI() { sidebar.classList.add('active'); resetUITimer(); }
-function hideUI() { sidebar.classList.remove('active'); }
-function resetUITimer() { clearTimeout(uiTimeout); uiTimeout = setTimeout(hideUI, 10000); }
+function showUI() { 
+    sidebar.classList.add('active'); 
+    resetUITimer(); 
+}
 
-interactionOverlay.addEventListener('click', showUI);
+function hideUI() { 
+    sidebar.classList.remove('active'); 
+    if (document.activeElement && document.activeElement.classList.contains('channel-item')) {
+        document.activeElement.blur();
+    }
+}
+
+function resetUITimer() { 
+    clearTimeout(uiTimeout); 
+    uiTimeout = setTimeout(hideUI, 4000); 
+}
+
+
+sidebar.addEventListener('click', (e) => e.stopPropagation());
+sidebar.addEventListener('mousemove', resetUITimer);
+channelList.addEventListener('scroll', resetUITimer, { passive: true });
+channelList.addEventListener('touchmove', resetUITimer, { passive: true });
+
+interactionOverlay.addEventListener('click', () => {
+    if (sidebar.classList.contains('active')) {
+        hideUI();
+    } else {
+        showUI();
+    }
+});
 interactionOverlay.addEventListener('mousemove', resetUITimer);
 
-function nextChannel() { playChannel(currentChannelIndex + 1); }
-function prevChannel() { playChannel(currentChannelIndex - 1); }
+function nextChannel() { 
+    playChannel(currentChannelIndex + 1, true); 
+    showUI(); 
+}
+
+function prevChannel() { 
+    playChannel(currentChannelIndex - 1, true); 
+    showUI(); 
+}
+
 
 let touchStartY = 0;
+let touchStartX = 0;
 interactionOverlay.addEventListener('touchstart', e => {
     touchStartY = e.changedTouches[0].screenY;
-    showUI();
+    touchStartX = e.changedTouches[0].screenX;
 }, {passive: true});
 
 interactionOverlay.addEventListener('touchend', e => {
     const touchEndY = e.changedTouches[0].screenY;
-    const diff = touchStartY - touchEndY;
-    if (diff > 50) nextChannel(); 
-    else if (diff < -50) prevChannel(); 
+    const touchEndX = e.changedTouches[0].screenX;
+    const diffY = touchStartY - touchEndY;
+    const diffX = touchStartX - touchEndX;
+
+    if (Math.abs(diffY) > 80 && Math.abs(diffX) < 60) {
+        if (diffY > 80) nextChannel();
+        else if (diffY < -80) prevChannel();
+    }
 }, {passive: true});
 
-// --------------------------------------------------------
-// SMART TV / KEYBOARD NAVIGATION HUB
-// --------------------------------------------------------
+
 function isOkOrEnterKey(e) {
     return (
         e.key === 'Enter' ||
         e.key === 'Select' ||
         e.key === 'Ok' ||
-        e.keyCode === 13 ||   // Standard Enter
-        e.keyCode === 23 ||   // Android DPAD_CENTER
-        e.keyCode === 66 ||   // Android KEYCODE_ENTER
-        e.keyCode === 108     // NUMPAD_ENTER
+        e.keyCode === 13 ||
+        e.keyCode === 23 ||
+        e.keyCode === 66 ||
+        e.keyCode === 108
     );
 }
 
 document.addEventListener('keydown', e => {
     const authSection = document.getElementById('authSection');
 
-    // 1. IF WE ARE ON THE LOGIN / ACTIVATION SCREEN
+    
     if (authSection && authSection.style.display !== 'none') {
         const codeInput = document.getElementById('activationCode');
         const activateBtn = document.getElementById('activateBtn');
 
-        // TV Remote Up/Down navigation between input and button
         if (e.key === 'ArrowDown' || e.keyCode === 20) {
             e.preventDefault();
             activateBtn.focus();
@@ -226,20 +263,17 @@ document.addEventListener('keydown', e => {
             return;
         }
 
-        // TV Remote OK / DPAD_CENTER / ENTER button
         if (isOkOrEnterKey(e)) {
             e.preventDefault();
             activate();
             return;
         }
 
-        // Allow regular typing and backspacing inside the input box
         if (document.activeElement === codeInput) return;
-
         return;
     }
 
-    // 2. IF WE ARE IN THE VIDEO PLAYER
+    
     if (document.activeElement.tagName === 'INPUT') {
         if (e.key === 'Escape' || e.keyCode === 4) {
             document.activeElement.blur();
@@ -273,14 +307,12 @@ document.addEventListener('keydown', e => {
         case 'ChannelUp':
             e.preventDefault();
             prevChannel();
-            showUI();
             break;
         case 'ArrowDown':
         case 'PageDown':
         case 'ChannelDown':
             e.preventDefault();
             nextChannel();
-            showUI();
             break;
     }
 });
@@ -290,4 +322,7 @@ function toggleFullscreen() {
     else if (document.exitFullscreen) document.exitFullscreen();
 }
 
-interactionOverlay.addEventListener('dblclick', (e) => { e.preventDefault(); toggleFullscreen(); });
+interactionOverlay.addEventListener('dblclick', (e) => { 
+    e.preventDefault(); 
+    toggleFullscreen(); 
+});
