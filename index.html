@@ -33,16 +33,6 @@
         }
 
         #appSection { width: 100vw; height: 100vh; position: relative; }
-        
-        #player-container {
-            width: 100%; height: 100%;
-            position: absolute; top: 0; left: 0;
-            background: #000;
-        }
-
-        #video-player, #iframe-player {
-            width: 100%; height: 100%; border: none; object-fit: cover;
-        }
 
         #splashScreen {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
@@ -83,12 +73,12 @@
         </div>
 
         <div id="player-container">
-            <div id="loader" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; z-index: 10;">Loading...</div>
+            <div id="loader" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; z-index: 15;">Loading...</div>
             <video id="video-player" controls autoplay></video>
             <iframe id="iframe-player" allowfullscreen style="display: none;"></iframe>
             <div id="interaction-overlay"></div>
             
-            <!-- UPDATED SIDEBAR WITH SEARCH -->
+
             <div id="sidebar">
                 <div class="search-container">
                     <input type="text" id="searchInput" placeholder="Search Channels or Groups..." autocomplete="off">
@@ -102,7 +92,7 @@
     <script>
         const client = supabase.createClient('https://yhxhmxawgaovzyxwookw.supabase.co', 'sb_publishable_jhU4EFNFX3ZtrmrgRfYlUQ_OfjA6Rym');
         
-        // Backward-compatible UUID generator (compatible with older Android TV WebViews)
+
         function generateUUID() {
             if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
                 return crypto.randomUUID();
@@ -119,7 +109,7 @@
             localStorage.setItem('mytv_device', JSON.stringify(device)); 
         }
 
-        // CUSTOM TOAST NOTIFICATION FUNCTION
+
         function showToast(msg, isError = false) {
             const toast = document.createElement('div');
             toast.textContent = msg;
@@ -149,7 +139,7 @@
             
             if (data.device_id) device.id = data.device_id;
             device.role = 'user'; 
-            localStorage.setItem('mytv_device', JSON.stringify(device));
+            localStorage.setItem('mytv_device', JSON.stringify(device)); 
             
             showToast(`Success! Unlocked ${data.tier} tier until ${new Date(data.expiry).toLocaleDateString()}`);
             document.getElementById('activationCode').value = ''; 
